@@ -49,7 +49,7 @@ export const TimelineEventCard = ({
     >
       {/* Card Content */}
       <div
-        className={`flex items-center w-full md:w-1/2 ${isHome ? "justify-end md:pr-8" : "justify-start md:pl-8"} ${isHome ? "order-1 md:order-none" : "order-2 md:order-none"}`}
+        className={`flex items-center w-full md:w-1/2 ${isHome ? "justify-end md:pr-8" : "justify-start md:pl-8"} ${isHome ? "order-1 md:order-0" : "order-2 md:order-0"}`}
       >
         <div className="p-3 bg-card border rounded-xl shadow-sm hover:shadow-md transition-shadow min-w-[200px]">
           <div
@@ -90,7 +90,7 @@ export const TimelineEventCard = ({
 
       {/* Dot */}
       <div
-        className={`absolute left-5 md:left-1/2 -translate-x-1/2 flex items-center justify-center w-8 h-8 rounded-full border-4 border-background bg-card shadow-sm z-10 ${isHome ? "order-2 md:order-none" : "order-1 md:order-none"}`}
+        className={`absolute left-5 md:left-1/2 -translate-x-1/2 flex items-center justify-center w-8 h-8 rounded-full border-4 border-background bg-card shadow-sm z-10 ${isHome ? "order-2 md:order-0" : "order-1 md:order-0"}`}
       >
         <span className="text-[10px] font-bold text-muted-foreground">
           {event.timeStr}&apos;
