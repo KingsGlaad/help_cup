@@ -59,14 +59,25 @@ export function MatchList({
   teamsMap,
   title = "Todos os Jogos",
 }: MatchListProps) {
+  
   const groupedGames = useMemo(() => {
     const groups: Record<string, Game[]> = {};
     if (!games) return groups;
+    
     games.forEach((game) => {
       const type = getPhaseKey(game.match_round);
       if (!groups[type]) groups[type] = [];
       groups[type].push(game);
     });
+
+    Object.keys(groups).forEach(phase => {
+      groups[phase].sort((a, b) => {
+        const dtA = (a.match_date || "") + (a.match_time || "00:00");
+        const dtB = (b.match_date || "") + (b.match_time || "00:00");
+        return dtA.localeCompare(dtB);
+      });
+    });
+
     return groups;
   }, [games]);
 
@@ -88,7 +99,7 @@ export function MatchList({
   };
 
   const formatFullDate = (game: Game) => {
-    if (game.match_date) {
+    if (game.match_date && game.match_date !== "TBD") {
       try {
         const [year, month, day] = game.match_date.split("-");
         if (day && month && year) {
@@ -284,3 +295,4 @@ export function MatchList({
     </div>
   );
 }
+

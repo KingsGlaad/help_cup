@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -67,11 +68,21 @@ const PlayerRow = ({
             }`}
           >
             <div className="flex items-center gap-2">
-              <span className={`font-medium ${subStatus === "out" ? "line-through decoration-yellow-500/50" : ""} border-b border-dashed border-muted-foreground/50`}>
+              <span
+                className={`font-medium ${subStatus === "out" ? "line-through decoration-yellow-500/50" : ""} border-b border-dashed border-muted-foreground/50`}
+              >
                 {player.lineup_player || "Jogador"}
               </span>
-              {subStatus === "in" && <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded uppercase">Entrou</span>}
-              {subStatus === "out" && <span className="text-[10px] font-bold text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded uppercase">Saiu</span>}
+              {subStatus === "in" && (
+                <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded uppercase">
+                  Entrou
+                </span>
+              )}
+              {subStatus === "out" && (
+                <span className="text-[10px] font-bold text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded uppercase">
+                  Saiu
+                </span>
+              )}
             </div>
             <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-md font-mono shrink-0 ml-2">
               {player.lineup_number || "-"}
@@ -198,7 +209,7 @@ export default function GamePage({
         toast.custom(
           (t) => (
             <div
-              className="relative overflow-hidden bg-gradient-to-br from-green-600 to-emerald-800 text-white p-5 rounded-2xl shadow-2xl flex items-center gap-5 w-[350px] max-w-full border-2 border-green-400/30 cursor-pointer"
+              className="relative overflow-hidden bg-linear-to-br from-green-600 to-emerald-800 text-white p-5 rounded-2xl shadow-2xl flex items-center gap-5 w-[350px] max-w-full border-2 border-green-400/30 cursor-pointer"
               onClick={() => toast.dismiss(t)}
             >
               {/* Rolling Ball Animation */}
@@ -301,8 +312,6 @@ export default function GamePage({
     );
   }
 
-
-
   if (!game) {
     return (
       <div className="min-h-screen bg-background font-sans antialiased text-foreground flex flex-col">
@@ -338,7 +347,9 @@ export default function GamePage({
         const timeStr = game.match_time ? game.match_time : "";
         return `${dateStr}${timeStr ? ` às ${timeStr}` : ""}`;
       } catch (e) {
+        toast.error("Erro ao formatar data");
         return game.match_date;
+        console.log(e);
       }
     }
     return "A definir";
@@ -360,15 +371,15 @@ export default function GamePage({
     const p1 = playerInLineup.toLowerCase().trim();
     const p2 = playerInSub.toLowerCase().trim();
     if (p1 === p2 || p1.includes(p2) || p2.includes(p1)) return true;
-    
+
     // Checagem de abreviação: "N. Williams" vs "Nico Williams"
-    const p1Parts = p1.split(" ").filter(x => x.length > 0);
-    const p2Parts = p2.split(" ").filter(x => x.length > 0);
-    
+    const p1Parts = p1.split(" ").filter((x) => x.length > 0);
+    const p2Parts = p2.split(" ").filter((x) => x.length > 0);
+
     if (p1Parts.length > 0 && p2Parts.length > 0) {
       const p1Last = p1Parts[p1Parts.length - 1];
       const p2Last = p2Parts[p2Parts.length - 1];
-      
+
       if (p1Last === p2Last && p1Last.length > 2) {
         if (p1[0] === p2[0]) return true;
       }
@@ -376,7 +387,11 @@ export default function GamePage({
     return false;
   };
 
-  const getSubStatus = (playerName: string, teamSubs: any[], isStarter: boolean): "in" | "out" | undefined => {
+  const getSubStatus = (
+    playerName: string,
+    teamSubs: any[],
+    isStarter: boolean,
+  ): "in" | "out" | undefined => {
     if (!teamSubs || !playerName) return undefined;
     for (const sub of teamSubs) {
       if (!sub.substitution) continue;
@@ -385,9 +400,17 @@ export default function GamePage({
         // Formato In | Out ou Out | In. Como sabemos se é titular, resolvemos fácil:
         const subA = parts[0];
         const subB = parts[1];
-        
-        if (isStarter && (isMatch(playerName, subA) || isMatch(playerName, subB))) return "out";
-        if (!isStarter && (isMatch(playerName, subA) || isMatch(playerName, subB))) return "in";
+
+        if (
+          isStarter &&
+          (isMatch(playerName, subA) || isMatch(playerName, subB))
+        )
+          return "out";
+        if (
+          !isStarter &&
+          (isMatch(playerName, subA) || isMatch(playerName, subB))
+        )
+          return "in";
       } else {
         if (isStarter && isMatch(playerName, sub.substitution)) return "out";
         if (!isStarter && isMatch(playerName, sub.substitution)) return "in";
@@ -520,7 +543,7 @@ export default function GamePage({
 
         {/* Header da Partida */}
         <div className="bg-card text-card-foreground rounded-3xl border shadow-xl overflow-hidden mb-8 relative">
-          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-primary/10 to-transparent"></div>
+          <div className="absolute top-0 left-0 w-full h-32 bg-linear-to-b from-primary/10 to-transparent"></div>
 
           <div className="p-8 sm:p-12 relative z-10">
             <div className="text-center mb-10">
@@ -711,7 +734,7 @@ export default function GamePage({
                               1º Tempo
                             </span>
                           </div>
-                          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
+                          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-linear-to-b before:from-transparent before:via-border before:to-transparent">
                             {firstHalfEvents.map((event) => (
                               <TimelineEventCard
                                 key={event.id}
@@ -734,7 +757,7 @@ export default function GamePage({
                               2º Tempo
                             </span>
                           </div>
-                          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
+                          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-linear-to-b before:from-transparent before:via-border before:to-transparent">
                             {secondHalfEvents.map((event) => (
                               <TimelineEventCard
                                 key={event.id}
@@ -757,7 +780,7 @@ export default function GamePage({
                               Acréscimos / Prorrogação
                             </span>
                           </div>
-                          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
+                          <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-linear-to-b before:from-transparent before:via-border before:to-transparent">
                             {extraTimeEvents.map((event) => (
                               <TimelineEventCard
                                 key={event.id}
@@ -930,17 +953,24 @@ export default function GamePage({
                           {game.lineup.home.starting_lineups.map(
                             (player: any, idx: number) => {
                               const name = player.lineup_player;
-                              const subStatus = getSubStatus(name, game.substitutions?.home || [], true);
+                              const subStatus = getSubStatus(
+                                name,
+                                game.substitutions?.home || [],
+                                true,
+                              );
                               return (
                                 <PlayerRow
                                   key={idx}
                                   player={player}
-                                  teamName={homeTeam?.team_name || game.match_hometeam_name}
+                                  teamName={
+                                    homeTeam?.team_name ||
+                                    game.match_hometeam_name
+                                  }
                                   game={game}
                                   subStatus={subStatus}
                                 />
                               );
-                            }
+                            },
                           )}
                         </ul>
                       </div>
@@ -956,17 +986,24 @@ export default function GamePage({
                               {game.lineup.home.substitutes.map(
                                 (player: any, idx: number) => {
                                   const name = player.lineup_player;
-                                  const subStatus = getSubStatus(name, game.substitutions?.home || [], false);
+                                  const subStatus = getSubStatus(
+                                    name,
+                                    game.substitutions?.home || [],
+                                    false,
+                                  );
                                   return (
                                     <PlayerRow
                                       key={idx}
                                       player={player}
-                                      teamName={homeTeam?.team_name || game.match_hometeam_name}
+                                      teamName={
+                                        homeTeam?.team_name ||
+                                        game.match_hometeam_name
+                                      }
                                       game={game}
                                       subStatus={subStatus}
                                     />
                                   );
-                                }
+                                },
                               )}
                             </ul>
                           </div>
@@ -1021,17 +1058,24 @@ export default function GamePage({
                           {game.lineup.away.starting_lineups.map(
                             (player: any, idx: number) => {
                               const name = player.lineup_player;
-                              const subStatus = getSubStatus(name, game.substitutions?.away || [], true);
+                              const subStatus = getSubStatus(
+                                name,
+                                game.substitutions?.away || [],
+                                true,
+                              );
                               return (
                                 <PlayerRow
                                   key={idx}
                                   player={player}
-                                  teamName={awayTeam?.team_name || game.match_awayteam_name}
+                                  teamName={
+                                    awayTeam?.team_name ||
+                                    game.match_awayteam_name
+                                  }
                                   game={game}
                                   subStatus={subStatus}
                                 />
                               );
-                            }
+                            },
                           )}
                         </ul>
                       </div>
@@ -1047,17 +1091,24 @@ export default function GamePage({
                               {game.lineup.away.substitutes.map(
                                 (player: any, idx: number) => {
                                   const name = player.lineup_player;
-                                  const subStatus = getSubStatus(name, game.substitutions?.away || [], false);
+                                  const subStatus = getSubStatus(
+                                    name,
+                                    game.substitutions?.away || [],
+                                    false,
+                                  );
                                   return (
                                     <PlayerRow
                                       key={idx}
                                       player={player}
-                                      teamName={awayTeam?.team_name || game.match_awayteam_name}
+                                      teamName={
+                                        awayTeam?.team_name ||
+                                        game.match_awayteam_name
+                                      }
                                       game={game}
                                       subStatus={subStatus}
                                     />
                                   );
-                                }
+                                },
                               )}
                             </ul>
                           </div>
