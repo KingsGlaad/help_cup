@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { use } from "react";
+import React, { use, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { fetcher, endpoints, Game, Team, Standing, Odd } from "@/lib/api";
 import { Header } from "@/components/layout/Header";
@@ -22,10 +22,112 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatBar } from "./_components/StatBar";
+import { toast } from "sonner";
 import {
   TimelineEventCard,
   TimelineEvent,
 } from "./_components/TimelineEventCard";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+const PlayerRow = ({
+  player,
+  teamName,
+  game,
+  subStatus,
+}: {
+  player: any;
+  teamName: string;
+  game: Game;
+  subStatus?: "in" | "out";
+}) => {
+  const isHome = teamName === game.match_hometeam_name;
+  const goals =
+    game.goalscorer?.filter((g) =>
+      isHome
+        ? g.home_scorer === player.lineup_player
+        : g.away_scorer === player.lineup_player,
+    ).length || 0;
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <li
+            className={`px-4 py-3 flex justify-between items-center hover:bg-muted/30 transition-colors cursor-help border-b border-border/20 last:border-0 ${
+              subStatus === "in"
+                ? "bg-green-500/15 border-l-4 border-l-green-500 hover:bg-green-500/20"
+                : subStatus === "out"
+                  ? "bg-yellow-500/15 border-l-4 border-l-yellow-500 hover:bg-yellow-500/20 opacity-70"
+                  : ""
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className={`font-medium ${subStatus === "out" ? "line-through decoration-yellow-500/50" : ""} border-b border-dashed border-muted-foreground/50`}>
+                {player.lineup_player || "Jogador"}
+              </span>
+              {subStatus === "in" && <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded uppercase">Entrou</span>}
+              {subStatus === "out" && <span className="text-[10px] font-bold text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded uppercase">Saiu</span>}
+            </div>
+            <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-md font-mono shrink-0 ml-2">
+              {player.lineup_number || "-"}
+            </span>
+          </li>
+        </TooltipTrigger>
+        <TooltipContent
+          className="w-80 p-4 rounded-xl shadow-xl z-50 bg-card text-card-foreground border"
+          sideOffset={10}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 rounded-full bg-muted overflow-hidden relative shrink-0 shadow-sm">
+              {player.player_image ? (
+                <Image
+                  src={player.player_image}
+                  alt={player.lineup_player}
+                  className="object-cover"
+                  fill
+                  sizes="48px"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-secondary text-secondary-foreground font-black text-xl">
+                  {(player.lineup_player || "J")[0].toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm leading-tight truncate">
+                {player.lineup_player}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {teamName}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs border-t pt-3">
+            <div>
+              <span className="text-muted-foreground block text-[10px] uppercase tracking-wider mb-0.5">
+                Posição
+              </span>
+              <span className="font-semibold text-primary">
+                {player.lineup_position || "—"}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block text-[10px] uppercase tracking-wider mb-0.5">
+                Gols na Partida
+              </span>
+              <span className="font-semibold text-primary">{goals}</span>
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 export default function GamePage({
   params,
@@ -48,6 +150,101 @@ export default function GamePage({
   const { data: oddsData } = useSWR<{
     odds: Odd[];
   }>(endpoints.odds(id), fetcher);
+
+  const games = gamesData?.games || [];
+  const teams = teamsData?.teams || [];
+  const groups = groupsData?.groups || [];
+
+  const game = games.find((g) => g.match_id === id);
+
+  const teamsMap = teams.reduce(
+    (acc, team) => {
+      acc[team.team_key] = team;
+      return acc;
+    },
+    {} as Record<string, Team>,
+  );
+
+  const homeTeam = game ? teamsMap[game.match_hometeam_id] : undefined;
+  const awayTeam = game ? teamsMap[game.match_awayteam_id] : undefined;
+
+  // Tracking de gols para disparar o Sonner
+  const isInitialLoad = useRef(true);
+  const previousGoalsRef = useRef(0);
+
+  useEffect(() => {
+    if (!game) return;
+    const currentGoals = game.goalscorer?.length || 0;
+
+    if (isInitialLoad.current) {
+      previousGoalsRef.current = currentGoals;
+      isInitialLoad.current = false;
+      return;
+    }
+
+    if (currentGoals > previousGoalsRef.current) {
+      const newGoals = game.goalscorer?.slice(previousGoalsRef.current) || [];
+
+      newGoals.forEach((goal) => {
+        const isHome = !!goal.home_scorer;
+        const playerName = isHome ? goal.home_scorer : goal.away_scorer;
+        const teamName = isHome
+          ? homeTeam?.team_name || game.match_hometeam_name
+          : awayTeam?.team_name || game.match_awayteam_name;
+        const flagUrl = isHome
+          ? homeTeam?.team_badge || game.team_home_badge
+          : awayTeam?.team_badge || game.team_away_badge;
+
+        toast.custom(
+          (t) => (
+            <div
+              className="relative overflow-hidden bg-gradient-to-br from-green-600 to-emerald-800 text-white p-5 rounded-2xl shadow-2xl flex items-center gap-5 w-[350px] max-w-full border-2 border-green-400/30 cursor-pointer"
+              onClick={() => toast.dismiss(t)}
+            >
+              {/* Rolling Ball Animation */}
+              <div className="animate-[spin_1.5s_linear_infinite,bounce_0.8s_ease-in-out_infinite] text-5xl shrink-0 drop-shadow-xl z-10">
+                ⚽
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 flex flex-col justify-center z-10">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-black text-2xl uppercase tracking-widest text-yellow-300 drop-shadow-sm">
+                    GOOOL!
+                  </span>
+                  {flagUrl && (
+                    <div className="relative w-8 h-5 rounded-sm overflow-hidden ring-1 ring-white/50 shadow-sm shrink-0 bg-white">
+                      <Image
+                        src={flagUrl}
+                        alt="Bandeira"
+                        fill
+                        sizes="32px"
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+                <p className="font-bold text-xl leading-tight truncate drop-shadow-sm">
+                  {playerName || "Jogador"}
+                </p>
+                <p className="text-sm font-medium text-green-100 opacity-90 truncate">
+                  {teamName}
+                </p>
+              </div>
+
+              {/* Decorative background stripes */}
+              <div className="absolute inset-0 opacity-10 pointer-events-none bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#fff_10px,#fff_20px)]"></div>
+            </div>
+          ),
+          { duration: 6000, position: "top-center" },
+        );
+      });
+
+      previousGoalsRef.current = currentGoals;
+    } else if (currentGoals < previousGoalsRef.current) {
+      previousGoalsRef.current = currentGoals;
+    }
+  }, [game, homeTeam, awayTeam]);
 
   if (loadingGames || loadingTeams || loadingGroups) {
     return (
@@ -104,11 +301,7 @@ export default function GamePage({
     );
   }
 
-  const games = gamesData?.games || [];
-  const teams = teamsData?.teams || [];
-  const groups = groupsData?.groups || [];
 
-  const game = games.find((g) => g.match_id === id);
 
   if (!game) {
     return (
@@ -125,19 +318,10 @@ export default function GamePage({
     );
   }
 
-  const teamsMap = teams.reduce(
-    (acc, team) => {
-      acc[team.team_key] = team;
-      return acc;
-    },
-    {} as Record<string, Team>,
-  );
-
-  const homeTeam = teamsMap[game.match_hometeam_id];
-  const awayTeam = teamsMap[game.match_awayteam_id];
-
   // Identificar se é fase de grupos
-  const isGroupStage = game.match_round?.toLowerCase().includes("group");
+  const isGroupStage =
+    game.match_round?.toLowerCase().includes("group") ||
+    ["1", "2", "3"].includes(game.match_round?.trim() || "");
   const groupMatch = isGroupStage
     ? groups.filter((g) => g.league_round === game.match_round)
     : null;
@@ -161,10 +345,56 @@ export default function GamePage({
   };
 
   const statusText = isLive
-    ? `Ao Vivo (${game.match_time}')`
+    ? game.match_status === "Half Time"
+      ? "Intervalo"
+      : game.match_status
+        ? `${isNaN(Number(game.match_status)) ? game.match_status : `${game.match_status}'`}`
+        : "Ao Vivo"
     : isFinished
       ? "Encerrado"
       : "Não Iniciado";
+
+  // Função robusta para cruzar nomes abreviados da API
+  const isMatch = (playerInLineup: string, playerInSub: string) => {
+    if (!playerInLineup || !playerInSub) return false;
+    const p1 = playerInLineup.toLowerCase().trim();
+    const p2 = playerInSub.toLowerCase().trim();
+    if (p1 === p2 || p1.includes(p2) || p2.includes(p1)) return true;
+    
+    // Checagem de abreviação: "N. Williams" vs "Nico Williams"
+    const p1Parts = p1.split(" ").filter(x => x.length > 0);
+    const p2Parts = p2.split(" ").filter(x => x.length > 0);
+    
+    if (p1Parts.length > 0 && p2Parts.length > 0) {
+      const p1Last = p1Parts[p1Parts.length - 1];
+      const p2Last = p2Parts[p2Parts.length - 1];
+      
+      if (p1Last === p2Last && p1Last.length > 2) {
+        if (p1[0] === p2[0]) return true;
+      }
+    }
+    return false;
+  };
+
+  const getSubStatus = (playerName: string, teamSubs: any[], isStarter: boolean): "in" | "out" | undefined => {
+    if (!teamSubs || !playerName) return undefined;
+    for (const sub of teamSubs) {
+      if (!sub.substitution) continue;
+      const parts = sub.substitution.split(" | ");
+      if (parts.length >= 2) {
+        // Formato In | Out ou Out | In. Como sabemos se é titular, resolvemos fácil:
+        const subA = parts[0];
+        const subB = parts[1];
+        
+        if (isStarter && (isMatch(playerName, subA) || isMatch(playerName, subB))) return "out";
+        if (!isStarter && (isMatch(playerName, subA) || isMatch(playerName, subB))) return "in";
+      } else {
+        if (isStarter && isMatch(playerName, sub.substitution)) return "out";
+        if (!isStarter && isMatch(playerName, sub.substitution)) return "in";
+      }
+    }
+    return undefined;
+  };
 
   const timelineEvents: TimelineEvent[] = [];
 
@@ -231,114 +461,42 @@ export default function GamePage({
 
   // API Statistics Integration
   const getStat = (type: string, isHome: boolean) => {
-    if (!game.statistics || game.statistics.length === 0) return null;
+    if (!game.statistics || game.statistics.length === 0) return 0;
     const stat = game.statistics.find((s) => s.type === type);
-    if (!stat) return null;
-    const val = (isHome ? stat.home : stat.away) || "";
-    return parseInt(val.replace("%", "")) || 0;
+    if (!stat) return 0;
+    const val = (isHome ? stat.home : stat.away) || "0";
+    const parsed = parseInt(val.replace("%", ""));
+    return isNaN(parsed) ? 0 : parsed;
   };
 
   const hasStats = game.statistics && game.statistics.length > 0;
-  const seedId = parseInt(game.match_id) || 1;
 
-  const homePossession = hasStats
-    ? getStat("Ball Possession", true) || 0
-    : isFinished || isLive
-      ? 40 + (seedId % 20)
-      : 0;
-  const awayPossession = hasStats
-    ? getStat("Ball Possession", false) || 0
-    : isFinished || isLive
-      ? 100 - homePossession
-      : 0;
+  const homePossession = getStat("Ball Possession", true);
+  const awayPossession = getStat("Ball Possession", false);
 
-  const homeShots = hasStats
-    ? getStat("Shots Total", true) || 0
-    : isFinished || isLive
-      ? 5 + (seedId % 10) + parseInt(game.match_hometeam_score || "0") * 2
-      : 0;
-  const awayShots = hasStats
-    ? getStat("Shots Total", false) || 0
-    : isFinished || isLive
-      ? 4 + (seedId % 8) + parseInt(game.match_awayteam_score || "0") * 2
-      : 0;
+  const homeShots = getStat("Shots Total", true);
+  const awayShots = getStat("Shots Total", false);
 
-  const homeShotsOnTarget = hasStats
-    ? getStat("Shots On Goal", true) || 0
-    : Math.max(0, homeShots - 2);
-  const awayShotsOnTarget = hasStats
-    ? getStat("Shots On Goal", false) || 0
-    : Math.max(0, awayShots - 1);
+  const homeShotsOnTarget = getStat("Shots On Goal", true);
+  const awayShotsOnTarget = getStat("Shots On Goal", false);
 
-  const homeYellowCards = hasStats
-    ? getStat("Yellow Cards", true) || 0
-    : isFinished || isLive
-      ? seedId % 4
-      : 0;
-  const homeRedCards = hasStats
-    ? getStat("Red Cards", true) || 0
-    : isFinished || isLive
-      ? homeYellowCards > 2
-        ? 1
-        : 0
-      : 0;
+  const homeYellowCards = getStat("Yellow Cards", true);
+  const homeRedCards = getStat("Red Cards", true);
 
-  const awayYellowCards = hasStats
-    ? getStat("Yellow Cards", false) || 0
-    : isFinished || isLive
-      ? (seedId + 2) % 4
-      : 0;
-  const awayRedCards = hasStats
-    ? getStat("Red Cards", false) || 0
-    : isFinished || isLive
-      ? awayYellowCards > 1
-        ? 1
-        : 0
-      : 0;
+  const awayYellowCards = getStat("Yellow Cards", false);
+  const awayRedCards = getStat("Red Cards", false);
 
-  const homeCorners = hasStats
-    ? getStat("Corners", true) || 0
-    : isFinished || isLive
-      ? seedId % 6
-      : 0;
-  const awayCorners = hasStats
-    ? getStat("Corners", false) || 0
-    : isFinished || isLive
-      ? (seedId + 3) % 7
-      : 0;
+  const homeCorners = getStat("Corners", true);
+  const awayCorners = getStat("Corners", false);
 
-  const homeFouls = hasStats
-    ? getStat("Fouls", true) || 0
-    : isFinished || isLive
-      ? 10 + (seedId % 5)
-      : 0;
-  const awayFouls = hasStats
-    ? getStat("Fouls", false) || 0
-    : isFinished || isLive
-      ? 12 + (seedId % 6)
-      : 0;
+  const homeFouls = getStat("Fouls", true);
+  const awayFouls = getStat("Fouls", false);
 
-  const homeOffsides = hasStats
-    ? getStat("Offsides", true) || 0
-    : isFinished || isLive
-      ? seedId % 3
-      : 0;
-  const awayOffsides = hasStats
-    ? getStat("Offsides", false) || 0
-    : isFinished || isLive
-      ? (seedId + 1) % 4
-      : 0;
+  const homeOffsides = getStat("Offsides", true);
+  const awayOffsides = getStat("Offsides", false);
 
-  const homePasses = hasStats
-    ? getStat("Passes Total", true) || 0
-    : isFinished || isLive
-      ? 300 + seedId * 10
-      : 0;
-  const awayPasses = hasStats
-    ? getStat("Passes Total", false) || 0
-    : isFinished || isLive
-      ? 280 + seedId * 12
-      : 0;
+  const homePasses = getStat("Passes Total", true);
+  const awayPasses = getStat("Passes Total", false);
 
   // Divider de Tempos
   const firstHalfEvents = timelineEvents.filter((e) => e.time <= 45);
@@ -364,26 +522,11 @@ export default function GamePage({
         <div className="bg-card text-card-foreground rounded-3xl border shadow-xl overflow-hidden mb-8 relative">
           <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-primary/10 to-transparent"></div>
 
-          {/* Status Badge */}
-          <div className="absolute top-6 right-6 z-10">
-            <span
-              className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-sm backdrop-blur-md ${
-                isLive
-                  ? "bg-red-500/90 text-white animate-pulse"
-                  : isFinished
-                    ? "bg-muted/80 text-muted-foreground"
-                    : "bg-primary/90 text-primary-foreground"
-              }`}
-            >
-              {statusText}
-            </span>
-          </div>
-
           <div className="p-8 sm:p-12 relative z-10">
             <div className="text-center mb-10">
               <span className="inline-block px-3 py-1 rounded-full bg-secondary/50 text-secondary-foreground text-xs font-semibold mb-3 tracking-wide">
                 {isGroupStage
-                  ? `FASE DE GRUPOS • ${game.match_round}`
+                  ? `FASE DE GRUPOS • ${["1", "2", "3"].includes(game.match_round?.trim() || "") ? `RODADA ${game.match_round}` : game.match_round}`
                   : game.match_round?.toUpperCase() || "FASE ELIMINATÓRIA"}
               </span>
               <p className="text-sm font-medium text-muted-foreground flex items-center justify-center gap-2">
@@ -414,7 +557,20 @@ export default function GamePage({
               </div>
 
               {/* Score */}
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center justify-center relative">
+                <div
+                  className={`mb-4 px-6 py-2 rounded-full text-sm sm:text-lg font-bold shadow-sm backdrop-blur-md tracking-wider ${
+                    game.match_status === "Half Time"
+                      ? "bg-amber-500/90 text-white animate-pulse"
+                      : isLive
+                        ? "bg-red-500/90 text-white animate-pulse"
+                        : isFinished
+                          ? "bg-muted/80 text-muted-foreground"
+                          : "bg-primary/90 text-primary-foreground"
+                  }`}
+                >
+                  {statusText}
+                </div>
                 <div className="flex items-center gap-3 sm:gap-6 font-black text-5xl sm:text-7xl bg-background/50 backdrop-blur-sm px-6 py-4 sm:px-10 sm:py-6 rounded-3xl border shadow-inner">
                   <span
                     className={
@@ -442,6 +598,34 @@ export default function GamePage({
                     {game.match_awayteam_score || "0"}
                   </span>
                 </div>
+
+                {/* Penalties & Extra Time for Knockout Stages */}
+                {!isGroupStage &&
+                (game.match_hometeam_extra_score ||
+                  game.match_hometeam_penalty_score) ? (
+                  <div className="mt-4 flex gap-2">
+                    {game.match_hometeam_extra_score && (
+                      <div className="px-3 py-1 bg-muted/50 rounded-full text-xs font-semibold text-muted-foreground tracking-widest uppercase border">
+                        ET: {game.match_hometeam_extra_score} -{" "}
+                        {game.match_awayteam_extra_score}
+                      </div>
+                    )}
+                    {game.match_hometeam_penalty_score && (
+                      <div className="px-3 py-1 bg-primary/10 rounded-full text-xs font-semibold text-primary tracking-widest uppercase border border-primary/20">
+                        PEN: {game.match_hometeam_penalty_score} -{" "}
+                        {game.match_awayteam_penalty_score}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {game.match_hometeam_halftime_score ||
+                game.match_awayteam_halftime_score ? (
+                  <div className="mt-3 px-4 py-1.5 bg-muted/30 rounded-full text-sm font-semibold text-muted-foreground tracking-widest uppercase">
+                    HT: {game.match_hometeam_halftime_score || "0"} -{" "}
+                    {game.match_awayteam_halftime_score || "0"}
+                  </div>
+                ) : null}
               </div>
 
               {/* Away Team */}
@@ -744,19 +928,19 @@ export default function GamePage({
                         </div>
                         <ul className="divide-y divide-border/50">
                           {game.lineup.home.starting_lineups.map(
-                            (player: any, idx: number) => (
-                              <li
-                                key={idx}
-                                className="px-4 py-3 flex justify-between items-center hover:bg-muted/30 transition-colors"
-                              >
-                                <span className="font-medium">
-                                  {player.lineup_player || "Jogador"}
-                                </span>
-                                <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-md font-mono">
-                                  {player.lineup_number || "-"}
-                                </span>
-                              </li>
-                            ),
+                            (player: any, idx: number) => {
+                              const name = player.lineup_player;
+                              const subStatus = getSubStatus(name, game.substitutions?.home || [], true);
+                              return (
+                                <PlayerRow
+                                  key={idx}
+                                  player={player}
+                                  teamName={homeTeam?.team_name || game.match_hometeam_name}
+                                  game={game}
+                                  subStatus={subStatus}
+                                />
+                              );
+                            }
                           )}
                         </ul>
                       </div>
@@ -770,19 +954,19 @@ export default function GamePage({
                             </div>
                             <ul className="divide-y divide-border/50">
                               {game.lineup.home.substitutes.map(
-                                (player: any, idx: number) => (
-                                  <li
-                                    key={idx}
-                                    className="px-4 py-3 flex justify-between items-center hover:bg-muted/30 transition-colors text-sm"
-                                  >
-                                    <span className="text-muted-foreground">
-                                      {player.lineup_player || "Jogador"}
-                                    </span>
-                                    <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-md font-mono">
-                                      {player.lineup_number || "-"}
-                                    </span>
-                                  </li>
-                                ),
+                                (player: any, idx: number) => {
+                                  const name = player.lineup_player;
+                                  const subStatus = getSubStatus(name, game.substitutions?.home || [], false);
+                                  return (
+                                    <PlayerRow
+                                      key={idx}
+                                      player={player}
+                                      teamName={homeTeam?.team_name || game.match_hometeam_name}
+                                      game={game}
+                                      subStatus={subStatus}
+                                    />
+                                  );
+                                }
                               )}
                             </ul>
                           </div>
@@ -835,19 +1019,19 @@ export default function GamePage({
                         </div>
                         <ul className="divide-y divide-border/50">
                           {game.lineup.away.starting_lineups.map(
-                            (player: any, idx: number) => (
-                              <li
-                                key={idx}
-                                className="px-4 py-3 flex justify-between items-center hover:bg-muted/30 transition-colors"
-                              >
-                                <span className="font-medium">
-                                  {player.lineup_player || "Jogador"}
-                                </span>
-                                <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-md font-mono">
-                                  {player.lineup_number || "-"}
-                                </span>
-                              </li>
-                            ),
+                            (player: any, idx: number) => {
+                              const name = player.lineup_player;
+                              const subStatus = getSubStatus(name, game.substitutions?.away || [], true);
+                              return (
+                                <PlayerRow
+                                  key={idx}
+                                  player={player}
+                                  teamName={awayTeam?.team_name || game.match_awayteam_name}
+                                  game={game}
+                                  subStatus={subStatus}
+                                />
+                              );
+                            }
                           )}
                         </ul>
                       </div>
@@ -861,19 +1045,19 @@ export default function GamePage({
                             </div>
                             <ul className="divide-y divide-border/50">
                               {game.lineup.away.substitutes.map(
-                                (player: any, idx: number) => (
-                                  <li
-                                    key={idx}
-                                    className="px-4 py-3 flex justify-between items-center hover:bg-muted/30 transition-colors text-sm"
-                                  >
-                                    <span className="text-muted-foreground">
-                                      {player.lineup_player || "Jogador"}
-                                    </span>
-                                    <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-md font-mono">
-                                      {player.lineup_number || "-"}
-                                    </span>
-                                  </li>
-                                ),
+                                (player: any, idx: number) => {
+                                  const name = player.lineup_player;
+                                  const subStatus = getSubStatus(name, game.substitutions?.away || [], false);
+                                  return (
+                                    <PlayerRow
+                                      key={idx}
+                                      player={player}
+                                      teamName={awayTeam?.team_name || game.match_awayteam_name}
+                                      game={game}
+                                      subStatus={subStatus}
+                                    />
+                                  );
+                                }
                               )}
                             </ul>
                           </div>

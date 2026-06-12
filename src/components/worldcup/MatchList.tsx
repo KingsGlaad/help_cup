@@ -12,6 +12,9 @@ interface MatchListProps {
 }
 
 const phaseMap: Record<string, string> = {
+  group1: "Rodada 1",
+  group2: "Rodada 2",
+  group3: "Rodada 3",
   group: "Fase de Grupos",
   r32: "16 Avos",
   r16: "Oitavas",
@@ -21,17 +24,32 @@ const phaseMap: Record<string, string> = {
   final: "Final",
 };
 
-const phaseOrder = ["group", "r32", "r16", "qf", "sf", "third", "final"];
+const phaseOrder = [
+  "group1",
+  "group2",
+  "group3",
+  "group",
+  "r32",
+  "r16",
+  "qf",
+  "sf",
+  "third",
+  "final",
+];
 
 function getPhaseKey(round: string): string {
-  if (!round) return "group";
-  const r = round.toLowerCase();
+  if (!round) return "group1";
+  const r = round.toLowerCase().trim();
+  if (r === "1" || r.includes("rodada 1") || r.includes("round 1")) return "group1";
+  if (r === "2" || r.includes("rodada 2") || r.includes("round 2")) return "group2";
+  if (r === "3" || r.includes("rodada 3") || r.includes("round 3")) return "group3";
   if (r.includes("group") || r.includes("grupo")) return "group";
   if (r.includes("32")) return "r32";
   if (r.includes("16") || r.includes("oitava")) return "r16";
   if (r.includes("quarter") || r.includes("quarta")) return "qf";
   if (r.includes("semi")) return "sf";
-  if (r.includes("3rd") || r.includes("third") || r.includes("terceiro")) return "third";
+  if (r.includes("3rd") || r.includes("third") || r.includes("terceiro"))
+    return "third";
   if (r.includes("final")) return "final";
   return "group";
 }
@@ -58,7 +76,13 @@ export function MatchList({
 
   const formatTime = (game: Game) => {
     if (game.match_status === "Finished") return "Encerrado";
-    if (game.match_live === "1") return "Ao Vivo";
+    if (game.match_status === "Half Time") return "Intervalo";
+    if (game.match_live === "1") {
+      if (game.match_status && game.match_status !== "") {
+        return `${isNaN(Number(game.match_status)) ? game.match_status : `${game.match_status}'`}`;
+      }
+      return "Ao Vivo";
+    }
     if (game.match_time) return game.match_time;
     return "";
   };
@@ -81,7 +105,7 @@ export function MatchList({
   const isLive = (game: Game) => game.match_live === "1";
 
   const phases = Object.keys(groupedGames).sort(
-    (a, b) => phaseOrder.indexOf(a) - phaseOrder.indexOf(b)
+    (a, b) => phaseOrder.indexOf(a) - phaseOrder.indexOf(b),
   );
   const defaultTab = phases[0] || "";
 
@@ -137,7 +161,9 @@ export function MatchList({
                         </span>
                         <span className="flex items-center gap-1.5 truncate max-w-[50%] justify-end">
                           <MapPin className="w-3 h-3 text-primary/70 shrink-0" />
-                          <span className="truncate">{game.match_stadium || "Estádio a definir"}</span>
+                          <span className="truncate">
+                            {game.match_stadium || "Estádio a definir"}
+                          </span>
                         </span>
                       </div>
                       <div className="flex items-center justify-between w-full">
@@ -147,7 +173,9 @@ export function MatchList({
                             <div className="relative w-8 h-6 rounded-sm overflow-hidden shadow-sm shrink-0">
                               <Image
                                 src={
-                                  homeTeam?.team_badge || game.team_home_badge || ""
+                                  homeTeam?.team_badge ||
+                                  game.team_home_badge ||
+                                  ""
                                 }
                                 alt="flag"
                                 fill
@@ -159,8 +187,12 @@ export function MatchList({
                             <div className="w-8 h-6 bg-muted rounded-sm shrink-0" />
                           )}
                           <span className="font-black text-sm tracking-widest uppercase">
-                            {homeTeam?.team_name?.substring(0, 3).toUpperCase() ||
-                              game.match_hometeam_name?.substring(0, 3).toUpperCase() ||
+                            {homeTeam?.team_name
+                              ?.substring(0, 3)
+                              .toUpperCase() ||
+                              game.match_hometeam_name
+                                ?.substring(0, 3)
+                                .toUpperCase() ||
                               "T1"}
                           </span>
                         </div>
@@ -174,8 +206,38 @@ export function MatchList({
                             </span>
                             <span>{game.match_awayteam_score || "0"}</span>
                           </div>
+                          {game.match_hometeam_halftime_score ||
+                          game.match_awayteam_halftime_score ? (
+                            <span className="text-[10px] mt-1 font-semibold text-muted-foreground uppercase tracking-wider text-center">
+                              HT: {game.match_hometeam_halftime_score || "0"} -{" "}
+                              {game.match_awayteam_halftime_score || "0"}
+                            </span>
+                          ) : null}
+
+                          {/* Extra Time / Penalties for Knockouts */}
+                          {!game.match_round?.toLowerCase().includes("group") && (
+                            <>
+                              {game.match_hometeam_extra_score && (
+                                <span className="text-[10px] mt-0.5 font-semibold text-muted-foreground uppercase tracking-wider text-center">
+                                  ET: {game.match_hometeam_extra_score} - {game.match_awayteam_extra_score}
+                                </span>
+                              )}
+                              {game.match_hometeam_penalty_score && (
+                                <span className="text-[10px] mt-0.5 font-bold text-primary uppercase tracking-wider text-center">
+                                  PEN: {game.match_hometeam_penalty_score} - {game.match_awayteam_penalty_score}
+                                </span>
+                              )}
+                            </>
+                          )}
+
                           <span
-                            className={`text-[10px] mt-1.5 font-bold uppercase tracking-wider ${live ? "text-green-600 animate-pulse" : "text-muted-foreground"}`}
+                            className={`text-lg sm:text-sm mt-1.5 font-bold uppercase tracking-wider ${
+                              game.match_status === "Half Time"
+                                ? "text-amber-500 animate-pulse"
+                                : live
+                                  ? "text-green-600 animate-pulse"
+                                  : "text-muted-foreground"
+                            }`}
                           >
                             {formatTime(game)}
                           </span>
@@ -184,15 +246,21 @@ export function MatchList({
                         {/* Away Team */}
                         <div className="flex flex-1 items-center justify-start gap-3">
                           <span className="font-black text-sm tracking-widest uppercase">
-                            {awayTeam?.team_name?.substring(0, 3).toUpperCase() ||
-                              game.match_awayteam_name?.substring(0, 3).toUpperCase() ||
+                            {awayTeam?.team_name
+                              ?.substring(0, 3)
+                              .toUpperCase() ||
+                              game.match_awayteam_name
+                                ?.substring(0, 3)
+                                .toUpperCase() ||
                               "T2"}
                           </span>
                           {awayTeam?.team_badge || game.team_away_badge ? (
                             <div className="relative w-8 h-6 rounded-sm overflow-hidden shadow-sm shrink-0">
                               <Image
                                 src={
-                                  awayTeam?.team_badge || game.team_away_badge || ""
+                                  awayTeam?.team_badge ||
+                                  game.team_away_badge ||
+                                  ""
                                 }
                                 alt="flag"
                                 fill
