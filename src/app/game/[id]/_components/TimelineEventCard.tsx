@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { Activity, ArrowRightLeft, Volleyball } from "lucide-react";
 import { Team, Game } from "@/lib/api";
@@ -44,8 +45,8 @@ export const TimelineEventCard = ({
 }: {
   event: TimelineEvent;
   isHome: boolean;
-  homeTeam: Team;
-  awayTeam: Team;
+  homeTeam: Team | undefined;
+  awayTeam: Team | undefined;
   game: Game;
 }) => {
   const eventTeamName = isHome
