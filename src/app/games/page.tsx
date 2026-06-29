@@ -13,8 +13,8 @@ export default function GamesPage() {
 
   const loading = loadingGames || loadingTeams;
 
-  const games = gamesData?.games || [];
-  const teams = teamsData?.teams || [];
+  const games = Array.isArray(gamesData?.games) ? gamesData.games : [];
+  const teams = Array.isArray(teamsData?.teams) ? teamsData.teams : [];
 
   const teamsMap = teams.reduce((acc, team) => {
     acc[team.team_key] = team;

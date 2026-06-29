@@ -14,9 +14,9 @@ export default function GroupsPage() {
 
   const loading = loadingGroups || loadingTeams || loadingGames;
 
-  const standings = groupsData?.groups || [];
-  const teams = teamsData?.teams || [];
-  const games = gamesData?.games || [];
+  const standings = Array.isArray(groupsData?.groups) ? groupsData.groups : [];
+  const teams = Array.isArray(teamsData?.teams) ? teamsData.teams : [];
+  const games = Array.isArray(gamesData?.games) ? gamesData.games : [];
 
   const teamsMap = teams.reduce((acc, team) => {
     acc[team.team_key] = team;

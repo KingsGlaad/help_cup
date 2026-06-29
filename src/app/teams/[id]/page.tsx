@@ -31,11 +31,11 @@ export default function TeamPage() {
 
   const loading = loadingGames || loadingTeams;
 
-  const team = teamsData?.teams.find((t) => t.team_key === id);
+  const team = Array.isArray(teamsData?.teams) ? teamsData.teams.find((t) => t.team_key === id) : undefined;
   const teamGames =
-    gamesData?.games.filter(
+    Array.isArray(gamesData?.games) ? gamesData.games.filter(
       (g) => g.match_hometeam_id === id || g.match_awayteam_id === id,
-    ) || [];
+    ) : [];
 
   // Ordenar cronologicamente
   const sortedGames = [...teamGames].sort((a, b) => {

@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { endpoints, fetcher, Standing, Team, Game } from "@/lib/api";
 import { GroupTable } from "./GroupTable";
 import { MatchList } from "./MatchList";
+import { KnockoutBracket } from "./KnockoutBracket";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function Dashboard() {
@@ -37,7 +38,7 @@ export function Dashboard() {
   // Criar um mapa de times para fácil acesso por ID
   const teamsMap = useMemo(() => {
     const map: Record<string, Team> = {};
-    if (teamsData?.teams) {
+    if (Array.isArray(teamsData?.teams)) {
       teamsData.teams.forEach((team) => {
         map[team.team_key] = team;
       });
@@ -45,8 +46,8 @@ export function Dashboard() {
     return map;
   }, [teamsData]);
 
-  const standings = groupsData?.groups || [];
-  const games = gamesData?.games || [];
+  const standings = Array.isArray(groupsData?.groups) ? groupsData.groups : [];
+  const games = Array.isArray(gamesData?.games) ? gamesData.games : [];
 
   const groupedStandings = useMemo(() => {
     const map = new Map<string, Standing[]>();
@@ -159,6 +160,9 @@ export function Dashboard() {
           </a>
         </div>
       </div>*/}
+
+      {/* Chaveamento Mata-Mata */}
+      <KnockoutBracket />
 
       {/* Seção Principal de Grupos e Jogos do Dia */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

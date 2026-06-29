@@ -15,7 +15,7 @@ export default function TeamsPage() {
   }>(endpoints.teams, fetcher);
 
   const teams = useMemo(() => {
-    const rawTeams = teamsData?.teams || [];
+    const rawTeams = Array.isArray(teamsData?.teams) ? teamsData.teams : [];
     return [...rawTeams].sort((a, b) => {
       const nameA = a.team_name || "";
       const nameB = b.team_name || "";

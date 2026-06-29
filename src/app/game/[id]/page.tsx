@@ -162,9 +162,9 @@ export default function GamePage({
     odds: Odd[];
   }>(endpoints.odds(id), fetcher);
 
-  const games = gamesData?.games || [];
-  const teams = teamsData?.teams || [];
-  const groups = groupsData?.groups || [];
+  const games = Array.isArray(gamesData?.games) ? gamesData.games : [];
+  const teams = Array.isArray(teamsData?.teams) ? teamsData.teams : [];
+  const groups = Array.isArray(groupsData?.groups) ? groupsData.groups : [];
 
   const game = games.find((g) => g.match_id === id);
 
